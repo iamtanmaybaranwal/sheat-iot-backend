@@ -53,6 +53,45 @@ app.post("/api/data/:deviceId", async (req, res) => {
   }
 });
 
+// ---------------- CLAIM DEVICE API ----------------
+app.post("/claim-device", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.split("Bearer ")[1];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: "No auth token provided",
+      });
+    }
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    const uid = decoded.uid;
+
+    const { deviceId } = req.body;
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        error: "Device ID required",
+      });
+    }
+
+    // Save ownership
+    await db.ref(`/users/${uid}/devices/${deviceId}`).set(true);
+    await db.ref(`/devices/${deviceId}/owner`).set(uid);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Claim device error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Claim failed",
+    });
+  }
+});
+
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
